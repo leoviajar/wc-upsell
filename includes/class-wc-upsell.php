@@ -140,8 +140,14 @@ class WC_Upsell {
      * Enqueue admin scripts
      */
     public function enqueue_admin_scripts( $hook ) {
-        // Only load on our admin pages
-        if ( strpos( $hook, 'wc-upsell' ) === false ) {
+        // Load on product edit page and our settings page
+        if ( ! in_array( $hook, array( 'post.php', 'post-new.php' ) ) && strpos( $hook, 'wc-upsell' ) === false ) {
+            return;
+        }
+
+        // Check if we're editing a product
+        global $post_type;
+        if ( in_array( $hook, array( 'post.php', 'post-new.php' ) ) && $post_type !== 'product' ) {
             return;
         }
 
