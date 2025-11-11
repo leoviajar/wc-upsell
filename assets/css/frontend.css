@@ -1,0 +1,183 @@
+/**
+ * WC Upsell - Frontend Styles
+ * 
+ * @package WC_Upsell
+ * @since 1.0.0
+ */
+
+/* Kit Selector Container */
+.wc-upsell-kit-selector {
+    margin: 30px 0;
+    padding: 25px;
+    background: #f9f9f9;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+}
+
+.wc-upsell-title {
+    margin: 0 0 20px 0;
+    font-size: 22px;
+    font-weight: 700;
+    color: #333;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Kits Grid */
+.wc-upsell-kits-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+/* Kit Option */
+.wc-upsell-kit-option {
+    position: relative;
+    background: #fff;
+    border: 3px solid #ddd;
+    border-radius: 8px;
+    padding: 20px 15px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+.wc-upsell-kit-option:hover {
+    border-color: #999;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.wc-upsell-kit-option.selected {
+    border-color: #2271b1;
+    background: #f0f6fc;
+    box-shadow: 0 4px 12px rgba(34, 113, 177, 0.2);
+}
+
+/* Badge */
+.wc-upsell-badge {
+    position: absolute;
+    top: 10px;
+    right: -30px;
+    background: #000;
+    color: #fff;
+    padding: 5px 35px;
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+    transform: rotate(45deg);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+/* Kit Content */
+.wc-upsell-kit-content {
+    text-align: center;
+}
+
+.wc-upsell-kit-header {
+    margin-bottom: 15px;
+}
+
+.wc-upsell-radio {
+    display: block;
+    cursor: pointer;
+    margin-bottom: 8px;
+}
+
+.wc-upsell-radio input[type="radio"] {
+    margin-right: 8px;
+    cursor: pointer;
+}
+
+.wc-upsell-quantity {
+    font-size: 18px;
+    font-weight: 700;
+    color: #333;
+}
+
+.wc-upsell-unit-price {
+    display: inline-block;
+    margin-top: 5px;
+    padding: 3px 10px;
+    background: #ffd700;
+    color: #333;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 12px;
+}
+
+/* Pricing */
+.wc-upsell-kit-pricing {
+    margin: 15px 0;
+}
+
+.wc-upsell-price-main {
+    font-size: 32px;
+    font-weight: 700;
+    color: #2271b1;
+    line-height: 1;
+}
+
+.wc-upsell-price-regular {
+    font-size: 18px;
+    color: #999;
+    text-decoration: line-through;
+    margin-top: 5px;
+}
+
+.wc-upsell-savings {
+    margin-top: 10px;
+    padding: 8px;
+    background: #e7f7e7;
+    color: #2e7d32;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 4px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .wc-upsell-kits-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .wc-upsell-title {
+        font-size: 18px;
+    }
+    
+    .wc-upsell-price-main {
+        font-size: 28px;
+    }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+    .wc-upsell-kits-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Animation */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.8;
+    }
+}
+
+.wc-upsell-kit-option.selected {
+    animation: pulse 2s infinite;
+}
+
+/* Integration with WooCommerce */
+.single-product .wc-upsell-kit-selector {
+    margin-bottom: 20px;
+}
+
+/* Hide default quantity selector when using kits */
+.wc-upsell-kit-selector ~ .quantity {
+    display: none;
+}
