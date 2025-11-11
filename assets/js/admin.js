@@ -66,11 +66,23 @@
          * Add new kit
          */
         addKit: function() {
+            console.log('Adicionando novo kit, índice atual:', this.kitIndex);
+            
             var template = $('#wc-upsell-kit-template').html();
+            
+            if (!template) {
+                console.error('Template não encontrado!');
+                alert('Erro: Template do kit não foi encontrado. Verifique o código.');
+                return;
+            }
+            
+            console.log('Template encontrado, substituindo índice...');
             template = template.replace(/\{\{INDEX\}\}/g, this.kitIndex);
             
             $('#wc-upsell-kits-list').append(template);
             this.kitIndex++;
+            
+            console.log('Kit adicionado com sucesso! Novo índice:', this.kitIndex);
             
             // Update calculations for new row
             var $newRow = $('#wc-upsell-kits-list tr:last');
@@ -193,8 +205,15 @@
 
     // Initialize when document is ready
     $(document).ready(function() {
+        console.log('WC Upsell Admin: Script carregado');
+        console.log('Meta box encontrada:', $('.wc-upsell-meta-box').length);
+        
         if ($('.wc-upsell-meta-box').length) {
+            console.log('WC Upsell Admin: Inicializando...');
             WCUpsellAdmin.init();
+            console.log('WC Upsell Admin: Inicializado com sucesso!');
+        } else {
+            console.log('WC Upsell Admin: Meta box não encontrada na página');
         }
     });
 
