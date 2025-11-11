@@ -10,12 +10,35 @@
 
     var WCUpsell = {
         
+        variationsData: null,
+        isVariable: false,
+
         /**
          * Initialize
          */
         init: function() {
+            this.loadVariationsData();
             this.bindEvents();
             this.updateQuantity();
+        },
+
+        /**
+         * Load variations data
+         */
+        loadVariationsData: function() {
+            var $selector = $('.wc-upsell-kit-selector');
+            this.isVariable = $selector.data('is-variable') === 1;
+            
+            if (this.isVariable) {
+                var $dataElement = $('#wc-upsell-variations-data');
+                if ($dataElement.length) {
+                    try {
+                        this.variationsData = JSON.parse($dataElement.text());
+                    } catch(e) {
+                        console.error('Error parsing variations data:', e);
+                    }
+                }
+            }
         },
 
         /**
@@ -24,7 +47,7 @@
         bindEvents: function() {
             // Kit selection
             $(document).on('click', '.wc-upsell-kit-option', function(e) {
-                if (!$(e.target).is('input[type="radio"]')) {
+                if (!$(e.target).is('input[type="radio"]') && !$(e.target).is('select')) {
                     $(this).find('input[type="radio"]').prop('checked', true).trigger('change');
                 }
             });
@@ -37,6 +60,15 @@
             // Update quantity field when kit is selected
             $(document).on('change', 'input[name="wc_upsell_selected_kit"]', function() {
                 WCUpsell.updateQuantity();
+            });
+
+            // Prevent form submission if variations not selected
+            $('form.cart').on('submit', function(e) {
+                if (!WCUpsell.validateVariations()) {
+                    e.preventDefault();
+                    WCUpsell.showMessage('Por favor, selecione todas as variações do kit.', 'error');
+                    return false;
+                }
             });
         },
 
@@ -53,6 +85,12 @@
 
             // Add selected class to current option
             $option.addClass('selected');
+
+            // Hide all variation containers
+            $container.find('.wc-upsell-variations-container').hide();
+
+            // Show variations for selected kit
+            $option.find('.wc-upsell-variations-container').slideDown(300);
 
             // Update hidden quantity field
             $('#wc-upsell-selected-quantity').val(quantity);
@@ -72,6 +110,34 @@
             if (selectedQuantity) {
                 $('.quantity input.qty').val(selectedQuantity);
             }
+        },
+
+        /**
+         * Validate variations selection
+         */
+        validateVariations: function() {
+            if (!this.isVariable) {
+                return true;
+            }
+
+            var $selectedKit = $('.wc-upsell-kit-option.selected');
+            if (!$selectedKit.length) {
+                return true;
+            }
+
+            var $variationSelects = $selectedKit.find('.wc-upsell-variation-select');
+            var allSelected = true;
+
+            $variationSelects.each(function() {
+                if (!$(this).val()) {
+                    allSelected = false;
+                    $(this).css('border-color', '#dc3232');
+                } else {
+                    $(this).css('border-color', '');
+                }
+            });
+
+            return allSelected;
         },
 
         /**
@@ -120,11 +186,16 @@
             var $message = $('<div class="woocommerce-message ' + type + '">' + message + '</div>');
             $('.wc-upsell-kit-selector').before($message);
             
+            // Scroll to message
+            $('html, body').animate({
+                scrollTop: $message.offset().top - 100
+            }, 300);
+            
             setTimeout(function() {
                 $message.fadeOut(function() {
                     $(this).remove();
                 });
-            }, 3000);
+            }, 5000);
         }
     };
 
