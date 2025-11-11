@@ -35,14 +35,36 @@ class WC_Upsell_Frontend {
             return;
         }
         
-        $product_kit = new WC_Upsell_Product_Kit( $product->get_id() );
+        // Get the actual product (handling parent/variation)
+        $product_id = $product->get_id();
+        
+        // For variable products, use the parent ID
+        if ( $product->is_type( 'variation' ) ) {
+            $product_id = $product->get_parent_id();
+        }
+        
+        $product_kit = new WC_Upsell_Product_Kit( $product_id );
         $kits = $product_kit->get_enabled_kits();
         
         if ( empty( $kits ) ) {
             return;
         }
         
+        // Get regular price - handle different product types
         $regular_price = $product->get_regular_price();
+        
+        // If empty (like in variable products), try to get from variations or use price
+        if ( empty( $regular_price ) || ! is_numeric( $regular_price ) ) {
+            if ( $product->is_type( 'variable' ) ) {
+                $regular_price = $product->get_variation_regular_price( 'min' );
+            } else {
+                $regular_price = $product->get_price();
+            }
+        }
+        
+        // Ensure it's numeric
+        $regular_price = floatval( $regular_price );
+        
         $pricing_engine = new WC_Upsell_Pricing_Engine();
         
         include WC_UPSELL_PLUGIN_DIR . 'includes/frontend/templates/kit-selector.php';
@@ -87,7 +109,21 @@ class WC_Upsell_Frontend {
         
         ob_start();
         
+        // Get regular price - handle different product types
         $regular_price = $product->get_regular_price();
+        
+        // If empty (like in variable products), try to get from variations or use price
+        if ( empty( $regular_price ) || ! is_numeric( $regular_price ) ) {
+            if ( $product->is_type( 'variable' ) ) {
+                $regular_price = $product->get_variation_regular_price( 'min' );
+            } else {
+                $regular_price = $product->get_price();
+            }
+        }
+        
+        // Ensure it's numeric
+        $regular_price = floatval( $regular_price );
+        
         $pricing_engine = new WC_Upsell_Pricing_Engine();
         
         include WC_UPSELL_PLUGIN_DIR . 'includes/frontend/templates/kit-selector.php';

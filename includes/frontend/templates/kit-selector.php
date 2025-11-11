@@ -21,12 +21,15 @@ if ( ! defined( 'ABSPATH' ) ) {
     
     <div class="wc-upsell-kits-grid">
         <?php foreach ( $kits as $index => $kit ) : 
-            $quantity = $kit['quantity'];
-            $kit_price = $kit['price'];
-            $unit_price = $kit_price / $quantity;
+            $quantity = isset( $kit['quantity'] ) ? absint( $kit['quantity'] ) : 1;
+            $kit_price = isset( $kit['price'] ) ? floatval( $kit['price'] ) : 0;
+            $unit_price = $quantity > 0 ? $kit_price / $quantity : 0;
             $savings = $pricing_engine->calculate_savings( $product->get_id(), $quantity );
             $discount_percentage = $pricing_engine->calculate_discount_percentage( $product->get_id(), $quantity );
-            $normal_total = $regular_price * $quantity;
+            
+            // Ensure regular_price is numeric
+            $regular_price_value = floatval( $regular_price );
+            $normal_total = $regular_price_value * $quantity;
             
             $is_first = $index === 0;
         ?>
