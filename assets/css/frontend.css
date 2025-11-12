@@ -9,8 +9,6 @@
 .wc-upsell-kit-selector {
     margin: 30px 0;
     padding: 25px;
-    background: #f9f9f9;
-    border: 2px solid #e0e0e0;
     border-radius: 8px;
 }
 
@@ -29,45 +27,52 @@
     display: flex;
     flex-direction: column;
     gap: 15px;
-    margin-bottom: 20px;
 }
 
 /* Kit Option */
 .wc-upsell-kit-option {
     position: relative;
     background: #fff;
-    border: 3px solid #ddd;
-    border-radius: 8px;
+    border: 2px solid #ddd;
+    border-radius: 16px;
     padding: 0;
     cursor: pointer;
-    transition: all 0.3s ease;
     overflow: visible;
 }
 
 .wc-upsell-kit-option:hover {
-    border-color: #999;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-color: #ff6600;
 }
 
 .wc-upsell-kit-option.selected {
-    border-color: #c8a35f;
-    background: #fffbf5;
+    border-width: 3px;
+    border-color: #ff6600;
+    background-color: rgb(239, 239, 239);
     box-shadow: 0 4px 12px rgba(200, 163, 95, 0.2);
+}
+
+/* Inner wrapper to handle border-radius with overflow */
+.wc-upsell-kit-option > div:not(.wc-upsell-badge) {
+    overflow: hidden;
+    border-radius: 14px;
+}
+
+.wc-upsell-kit-option.selected > div:not(.wc-upsell-badge) {
+    border-radius: 13px;
 }
 
 /* Badge */
 .wc-upsell-badge {
     position: absolute;
-    top: 15px;
+    top: -10px;
     right: 15px;
     background: #000;
     color: #fff;
-    padding: 6px 14px;
-    font-size: 11px;
-    font-weight: bold;
+    padding: 4px 12px;
+    font-size: 10px;
+    font-weight: 600;
     text-transform: uppercase;
     border-radius: 4px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
     z-index: 10;
 }
 
@@ -77,6 +82,10 @@
     align-items: center;
     justify-content: space-between;
     padding: 20px 25px;
+}
+
+/* Only show border bottom when variations container exists and is visible */
+.wc-upsell-kit-option:has(.wc-upsell-variations-container) .wc-upsell-kit-main {
     border-bottom: 1px solid #f0f0f0;
 }
 
@@ -91,15 +100,64 @@
 .wc-upsell-radio input[type="radio"] {
     margin: 0;
     cursor: pointer;
-    width: 20px;
-    height: 20px;
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #ddd;
+    border-radius: 50%;
+    outline: none;
+    transition: all 0.2s ease;
+    position: relative;
+    background: #fff;
+}
+
+.wc-upsell-radio input[type="radio"]:hover {
+    border-color: #ff6600;
+}
+
+.wc-upsell-radio input[type="radio"]:checked {
+    border-color: #ff6600;
+    background: #fff;
+}
+
+.wc-upsell-radio input[type="radio"]:checked::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ff6600;
 }
 
 .wc-upsell-quantity {
     font-size: 18px;
-    font-weight: 700;
+    font-weight: 600;
     color: #333;
     white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.wc-upsell-unit-price-badge {
+    display: inline-block;
+    background: #ff6600;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+.wc-upsell-unit-price-badge .woocommerce-Price-amount,
+.wc-upsell-unit-price-badge bdi {
+    color: #fff !important;
+    font-size: 11px !important;
 }
 
 /* Pricing Section */
@@ -109,17 +167,23 @@
     gap: 12px;
 }
 
-.wc-upsell-price-main {
-    font-size: 28px;
-    font-weight: 700;
-    color: #ff6b35;
-    line-height: 1;
+.wc-upsell-price-main,
+.wc-upsell-price-main *,
+.wc-upsell-price-main .woocommerce-Price-amount,
+.wc-upsell-price-main bdi {
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    color: #111111 !important;
+    line-height: 1 !important;
 }
 
-.wc-upsell-price-regular {
-    font-size: 16px;
-    color: #999;
-    text-decoration: line-through;
+.wc-upsell-price-regular,
+.wc-upsell-price-regular *,
+.wc-upsell-price-regular .woocommerce-Price-amount,
+.wc-upsell-price-regular bdi {
+    font-size: 16px !important;
+    color: #999 !important;
+    text-decoration: line-through !important;
 }
 
 /* Responsive */
@@ -183,13 +247,9 @@
     }
 }
 
-.wc-upsell-kit-option.selected {
-    animation: pulse 2s infinite;
-}
-
 /* Integration with WooCommerce */
 .single-product .wc-upsell-kit-selector {
-    margin-bottom: 20px;
+    margin: 0;
 }
 
 /* Hide default quantity selector when using kits */
@@ -202,12 +262,39 @@
     padding: 20px 25px;
     background: #fafafa;
     border-top: 1px solid #e0e0e0;
+    border-bottom-left-radius: 14px;
+    border-bottom-right-radius: 14px;
 }
 
+/* Variation Header (like table header) */
+.wc-upsell-variations-header {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.wc-upsell-variation-number-header {
+    font-size: 10px;
+    width: 20px;
+}
+
+.wc-upsell-variation-header-item {
+    flex: 1;
+    font-size: 11px;
+    font-weight: 700;
+    color: #333;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Variation List (rows) */
 .wc-upsell-variations-list {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
 }
 
 .wc-upsell-variation-item {
@@ -217,17 +304,10 @@
 }
 
 .wc-upsell-variation-number {
-    min-width: 30px;
-    height: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #2271b1;
-    color: #fff;
-    border-radius: 50%;
-    font-size: 14px;
-    font-weight: 700;
-    flex-shrink: 0;
+    font-size: 10px;
+    width: 20px;
+    font-weight: 600;
+    color: #666;
 }
 
 .wc-upsell-variation-selects {
@@ -236,38 +316,16 @@
     gap: 15px;
 }
 
-.wc-upsell-variation-field {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.wc-upsell-variation-field label {
-    font-size: 12px;
-    font-weight: 600;
-    color: #666;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.wc-upsell-variation-select {
+.wc-upsell-variations-container .wc-upsell-variation-select,
+.wc-upsell-variation-field select.wc-upsell-variation-select {
     width: 100%;
-    padding: 10px 12px;
-    border: 2px solid #ddd;
-    border-radius: 6px;
-    font-size: 14px;
-    background: #fff;
+    border: 1px solid #d9d9d9;
+    border-radius: 4px;
+    font-size: 12px;
     cursor: pointer;
-    transition: all 0.2s;
+    height: 28px;
+    color: #000;
+    text-transform: capitalize;
 }
 
-.wc-upsell-variation-select:focus {
-    outline: none;
-    border-color: #2271b1;
-    box-shadow: 0 0 0 1px #2271b1;
-}
 
-.wc-upsell-variation-select:required:invalid {
-    border-color: #dc3232;
-}

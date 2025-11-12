@@ -18,7 +18,7 @@ class WC_Upsell_Cart_Handler {
      * Constructor
      */
     public function __construct() {
-        // Add kit to cart with custom price
+        // Add kit data to cart item
         add_filter( 'woocommerce_add_cart_item_data', array( $this, 'add_kit_data_to_cart' ), 10, 3 );
         add_filter( 'woocommerce_get_cart_item_from_session', array( $this, 'get_kit_data_from_session' ), 10, 2 );
         
@@ -29,8 +29,83 @@ class WC_Upsell_Cart_Handler {
         add_filter( 'woocommerce_get_item_data', array( $this, 'display_kit_info_in_cart' ), 10, 2 );
         
         // AJAX handler for adding kit to cart
-        add_action( 'wp_ajax_wc_upsell_add_to_cart', array( $this, 'ajax_add_to_cart' ) );
-        add_action( 'wp_ajax_nopriv_wc_upsell_add_to_cart', array( $this, 'ajax_add_to_cart' ) );
+        add_action( 'wp_ajax_wc_upsell_add_kit', array( $this, 'ajax_add_kit_to_cart' ) );
+        add_action( 'wp_ajax_nopriv_wc_upsell_add_kit', array( $this, 'ajax_add_kit_to_cart' ) );
+    }
+    
+    /**
+     * AJAX handler for adding kit with multiple variations
+     */
+    public function ajax_add_kit_to_cart() {
+        check_ajax_referer( 'wc-upsell-nonce', 'security' );
+        
+        if ( ! isset( $_POST['kit_data'] ) ) {
+            wp_send_json_error( __( 'Dados inválidos.', 'wc-upsell' ) );
+        }
+        
+        $kit_data = json_decode( wp_unslash( $_POST['kit_data'] ), true );
+        
+        if ( ! $kit_data || ! isset( $kit_data['product_id'] ) || ! isset( $kit_data['quantity'] ) || ! isset( $kit_data['variations'] ) ) {
+            wp_send_json_error( __( 'Dados do kit inválidos.', 'wc-upsell' ) );
+        }
+        
+        $product_id = absint( $kit_data['product_id'] );
+        $quantity = absint( $kit_data['quantity'] );
+        $variations = $kit_data['variations'];
+        
+        // Get kit pricing
+        $product_kit = new WC_Upsell_Product_Kit( $product_id );
+        $kit = $product_kit->get_kit_by_quantity( $quantity );
+        
+        if ( ! $kit ) {
+            wp_send_json_error( __( 'Kit não encontrado.', 'wc-upsell' ) );
+        }
+        
+        $unit_price = floatval( $kit['price'] ) / $quantity;
+        
+        // Add each variation to cart
+        $added_items = array();
+        foreach ( $variations as $variation_data ) {
+            if ( ! isset( $variation_data['variation_id'] ) || ! isset( $variation_data['attributes'] ) ) {
+                continue;
+            }
+            
+            $variation_id = absint( $variation_data['variation_id'] );
+            $attributes = $variation_data['attributes'];
+            
+            // Add to cart with kit data
+            $cart_item_key = WC()->cart->add_to_cart(
+                $product_id,
+                1,
+                $variation_id,
+                $attributes,
+                array(
+                    'wc_upsell_kit' => array(
+                        'quantity' => $quantity,
+                        'kit_price' => $kit['price'],
+                        'badge_text' => isset( $kit['badge_text'] ) ? $kit['badge_text'] : '',
+                    ),
+                    'wc_upsell_unit_price' => $unit_price,
+                    'wc_upsell_unique_key' => md5( microtime() . rand() ),
+                )
+            );
+            
+            if ( $cart_item_key ) {
+                $added_items[] = $cart_item_key;
+            }
+        }
+        
+        if ( ! empty( $added_items ) ) {
+            WC()->cart->calculate_totals();
+            
+            wp_send_json_success( array(
+                'fragments' => apply_filters( 'woocommerce_add_to_cart_fragments', array() ),
+                'cart_hash' => WC()->cart->get_cart_hash(),
+                'cart_url' => wc_get_cart_url(),
+            ) );
+        } else {
+            wp_send_json_error( __( 'Não foi possível adicionar o kit ao carrinho.', 'wc-upsell' ) );
+        }
     }
 
     /**
@@ -95,7 +170,13 @@ class WC_Upsell_Cart_Handler {
         }
         
         foreach ( $cart->get_cart() as $cart_item_key => $cart_item ) {
-            if ( isset( $cart_item['wc_upsell_kit'] ) ) {
+            // Check for unit price (when variation added via AJAX)
+            if ( isset( $cart_item['wc_upsell_unit_price'] ) ) {
+                $unit_price = floatval( $cart_item['wc_upsell_unit_price'] );
+                $cart_item['data']->set_price( $unit_price );
+            }
+            // Or check for kit data (simple products)
+            elseif ( isset( $cart_item['wc_upsell_kit'] ) ) {
                 $kit_data = $cart_item['wc_upsell_kit'];
                 $kit_quantity = $kit_data['quantity'];
                 $kit_price = $kit_data['kit_price'];
@@ -150,7 +231,7 @@ class WC_Upsell_Cart_Handler {
         
         $product_id = isset( $_POST['product_id'] ) ? absint( $_POST['product_id'] ) : 0;
         $quantity = isset( $_POST['quantity'] ) ? absint( $_POST['quantity'] ) : 1;
-        $variation_id = isset( $_POST['variation_id'] ) ? absint( $_POST['variation_id'] ) : 0;
+        $variations = isset( $_POST['variations'] ) ? $_POST['variations'] : array();
         
         if ( ! $product_id ) {
             wp_send_json_error( array(
@@ -168,27 +249,76 @@ class WC_Upsell_Cart_Handler {
             ) );
         }
         
-        // Add to cart
-        $_POST['wc_upsell_kit'] = true;
-        $_POST['wc_upsell_quantity'] = $quantity;
+        $product = wc_get_product( $product_id );
+        $is_variable = $product && $product->is_type( 'variable' );
         
-        $passed_validation = apply_filters( 'woocommerce_add_to_cart_validation', true, $product_id, $quantity );
-        
-        if ( $passed_validation ) {
-            $cart_item_key = WC()->cart->add_to_cart( 
-                $product_id, 
-                $quantity, 
-                $variation_id 
-            );
+        // If product is variable and we have variations, add each one separately
+        if ( $is_variable && ! empty( $variations ) && is_array( $variations ) ) {
+            $_POST['wc_upsell_kit'] = true;
+            $_POST['wc_upsell_quantity'] = $quantity;
             
-            if ( $cart_item_key ) {
-                do_action( 'wc_upsell_kit_added_to_cart', $cart_item_key, $product_id, $quantity );
+            $added_items = array();
+            $unit_price = floatval( $kit['price'] ) / $quantity;
+            
+            foreach ( $variations as $variation_data ) {
+                if ( ! isset( $variation_data['variation_id'] ) || ! isset( $variation_data['attributes'] ) ) {
+                    continue;
+                }
+                
+                $variation_id = absint( $variation_data['variation_id'] );
+                $attributes = $variation_data['attributes'];
+                
+                // Store variation attributes for this item
+                $_POST['wc_upsell_variation_attributes'] = $attributes;
+                
+                // Add single item with custom price
+                $cart_item_key = WC()->cart->add_to_cart(
+                    $product_id,
+                    1, // Add 1 unit at a time
+                    $variation_id,
+                    $attributes
+                );
+                
+                if ( $cart_item_key ) {
+                    $added_items[] = $cart_item_key;
+                    
+                    // Set custom price for this cart item
+                    WC()->cart->cart_contents[ $cart_item_key ]['wc_upsell_unit_price'] = $unit_price;
+                }
+            }
+            
+            if ( ! empty( $added_items ) ) {
+                WC()->cart->calculate_totals();
                 
                 wp_send_json_success( array(
                     'message' => __( 'Kit adicionado ao carrinho!', 'wc-upsell' ),
                     'cart_hash' => WC()->cart->get_cart_hash(),
                     'fragments' => apply_filters( 'woocommerce_add_to_cart_fragments', array() ),
                 ) );
+            }
+        } else {
+            // Simple product or no variations - add as before
+            $_POST['wc_upsell_kit'] = true;
+            $_POST['wc_upsell_quantity'] = $quantity;
+            
+            $passed_validation = apply_filters( 'woocommerce_add_to_cart_validation', true, $product_id, $quantity );
+            
+            if ( $passed_validation ) {
+                $cart_item_key = WC()->cart->add_to_cart(
+                    $product_id,
+                    $quantity,
+                    0
+                );
+                
+                if ( $cart_item_key ) {
+                    do_action( 'wc_upsell_kit_added_to_cart', $cart_item_key, $product_id, $quantity );
+                    
+                    wp_send_json_success( array(
+                        'message' => __( 'Kit adicionado ao carrinho!', 'wc-upsell' ),
+                        'cart_hash' => WC()->cart->get_cart_hash(),
+                        'fragments' => apply_filters( 'woocommerce_add_to_cart_fragments', array() ),
+                    ) );
+                }
             }
         }
         

@@ -68,6 +68,13 @@ if ( $is_variable ) {
                         /* translators: %d: quantity */
                         echo sprintf( _n( '%d Unidade', '%d Unidades', $quantity, 'wc-upsell' ), $quantity ); 
                         ?>
+                        <?php if ( $quantity >= 2 ) : 
+                            $unit_price = $kit_price / $quantity;
+                        ?>
+                        <span class="wc-upsell-unit-price-badge">
+                            <?php echo wc_price( $unit_price ); ?> / un
+                        </span>
+                        <?php endif; ?>
                     </span>
                 </label>
                 
@@ -87,28 +94,41 @@ if ( $is_variable ) {
             <?php if ( $is_variable ) : ?>
             <!-- Variation Selector -->
             <div class="wc-upsell-variations-container" style="display: <?php echo $is_first ? 'block' : 'none'; ?>;">
+                <?php
+                // Get product attributes once
+                $attributes = $product->get_variation_attributes();
+                ?>
+                
+                <!-- Header with attribute labels -->
+                <div class="wc-upsell-variations-header">
+                    <div class="wc-upsell-variation-number-header"></div>
+                    <?php foreach ( $attributes as $attribute_name => $options ) : 
+                        $attribute_label = wc_attribute_label( $attribute_name );
+                    ?>
+                        <div class="wc-upsell-variation-header-item">
+                            <?php echo esc_html( $attribute_label ); ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+                
+                <!-- Variation rows -->
                 <div class="wc-upsell-variations-list">
                     <?php for ( $i = 1; $i <= $quantity; $i++ ) : ?>
                     <div class="wc-upsell-variation-item">
                         <div class="wc-upsell-variation-number"><?php echo $i; ?>.</div>
                         <div class="wc-upsell-variation-selects">
                             <?php
-                            // Get product attributes
-                            $attributes = $product->get_variation_attributes();
-                            
                             foreach ( $attributes as $attribute_name => $options ) :
-                                $attribute_label = wc_attribute_label( $attribute_name );
                                 $sanitized_name = sanitize_title( $attribute_name );
+                                $first_option = reset( $options ); // Get first option
                             ?>
                             <div class="wc-upsell-variation-field">
-                                <label><?php echo esc_html( $attribute_label ); ?></label>
                                 <select name="wc_upsell_variation[<?php echo $index; ?>][<?php echo $i - 1; ?>][<?php echo esc_attr( $sanitized_name ); ?>]"
                                         class="wc-upsell-variation-select"
                                         data-attribute="<?php echo esc_attr( $sanitized_name ); ?>"
                                         required>
-                                    <option value=""><?php echo esc_html( sprintf( __( 'Escolha %s', 'wc-upsell' ), $attribute_label ) ); ?></option>
                                     <?php foreach ( $options as $option ) : ?>
-                                        <option value="<?php echo esc_attr( $option ); ?>">
+                                        <option value="<?php echo esc_attr( $option ); ?>" <?php selected( $option, $first_option ); ?>>
                                             <?php echo esc_html( $option ); ?>
                                         </option>
                                     <?php endforeach; ?>

@@ -17,6 +17,11 @@
          * Initialize
          */
         init: function() {
+            // Only initialize if kit selector exists
+            if ($('.wc-upsell-kit-selector').length === 0) {
+                return;
+            }
+            
             this.loadVariationsData();
             this.bindEvents();
             this.updateQuantity();
@@ -64,9 +69,21 @@
 
             // Prevent form submission if variations not selected
             $('form.cart').on('submit', function(e) {
-                if (!WCUpsell.validateVariations()) {
+                var $form = $(this);
+                
+                // Check if this is a kit with variations
+                if ($('input[name="wc_upsell_kit"]').length && WCUpsell.isVariable) {
                     e.preventDefault();
-                    WCUpsell.showMessage('Por favor, selecione todas as variações do kit.', 'error');
+                    
+                    // Validate variations
+                    if (!WCUpsell.validateVariations()) {
+                        WCUpsell.showMessage('Por favor, selecione todas as variações do kit.', 'error');
+                        return false;
+                    }
+                    
+                    // Add each variation to cart separately
+                    WCUpsell.addKitToCart();
+                    
                     return false;
                 }
             });
@@ -80,6 +97,11 @@
             var $option = $radio.closest('.wc-upsell-kit-option');
             var quantity = $option.data('quantity');
 
+            // Check if already selected
+            if ($option.hasClass('selected')) {
+                return; // Do nothing if already selected
+            }
+
             // Remove selected class from all options
             $container.find('.wc-upsell-kit-option').removeClass('selected');
 
@@ -89,8 +111,9 @@
             // Hide all variation containers
             $container.find('.wc-upsell-variations-container').hide();
 
-            // Show variations for selected kit
-            $option.find('.wc-upsell-variations-container').slideDown(300);
+            // Show variations for selected kit (no animation)
+            var $variations = $option.find('.wc-upsell-variations-container');
+            $variations.show();
 
             // Update hidden quantity field
             $('#wc-upsell-selected-quantity').val(quantity);
@@ -141,40 +164,116 @@
         },
 
         /**
-         * Add kit to cart via AJAX
+         * Add kit to cart (each variation separately)
          */
-        addToCart: function(productId, quantity, variationId) {
-            var data = {
-                action: 'wc_upsell_add_to_cart',
-                nonce: wcUpsellParams.nonce,
+        addKitToCart: function() {
+            var $selectedKit = $('.wc-upsell-kit-option.selected');
+            var $container = $selectedKit.find('.wc-upsell-variations-container');
+            var productId = $('.wc-upsell-kit-selector').data('product-id');
+            var quantity = $selectedKit.data('quantity');
+            
+            // Get kit data
+            var kitData = {
                 product_id: productId,
                 quantity: quantity,
-                variation_id: variationId || 0
+                variations: []
             };
+            
+            // Collect each variation's attributes
+            $container.find('.wc-upsell-variation-item').each(function() {
+                var attributes = {};
+                
+                $(this).find('.wc-upsell-variation-select').each(function() {
+                    var $select = $(this);
+                    var attrName = $select.data('attribute');
+                    var attrValue = $select.val();
+                    
+                    if (attrName && attrValue) {
+                        attributes['attribute_' + attrName] = attrValue;
+                    }
+                });
+                
+                // Find variation ID
+                var variationId = WCUpsell.findVariationId(attributes);
+                
+                if (variationId) {
+                    kitData.variations.push({
+                        variation_id: variationId,
+                        attributes: attributes
+                    });
+                }
+            });
+            
+            // Add to cart via AJAX
+            WCUpsell.ajaxAddKitToCart(kitData);
+        },
 
+        /**
+         * Find variation ID from attributes
+         */
+        findVariationId: function(attributes) {
+            if (!this.variationsData) {
+                return 0;
+            }
+            
+            for (var i = 0; i < this.variationsData.length; i++) {
+                var variation = this.variationsData[i];
+                var match = true;
+                
+                for (var attrKey in attributes) {
+                    var variationValue = variation.attributes[attrKey];
+                    var selectedValue = attributes[attrKey];
+                    
+                    // Normalize comparison (case insensitive, trim)
+                    if (variationValue && selectedValue) {
+                        if (variationValue.toLowerCase().trim() !== selectedValue.toLowerCase().trim()) {
+                            match = false;
+                            break;
+                        }
+                    } else if (variationValue !== selectedValue) {
+                        match = false;
+                        break;
+                    }
+                }
+                
+                if (match) {
+                    return variation.variation_id;
+                }
+            }
+            
+            return 0;
+        },
+
+        /**
+         * Add kit to cart via AJAX
+         */
+        ajaxAddKitToCart: function(kitData) {
             $.ajax({
                 url: wcUpsellParams.ajax_url,
                 type: 'POST',
-                data: data,
+                data: {
+                    action: 'wc_upsell_add_kit',
+                    security: wcUpsellParams.nonce,
+                    kit_data: JSON.stringify(kitData)
+                },
                 beforeSend: function() {
-                    $('.wc-upsell-kit-selector').addClass('loading');
+                    $('form.cart').addClass('loading');
                 },
                 success: function(response) {
-                    $('.wc-upsell-kit-selector').removeClass('loading');
+                    $('form.cart').removeClass('loading');
                     
                     if (response.success) {
-                        // Trigger WooCommerce added to cart event
-                        $(document.body).trigger('added_to_cart', [response.data.fragments, response.data.cart_hash]);
-                        
-                        // Show success message
-                        WCUpsell.showMessage(response.data.message, 'success');
+                        // Always redirect to cart page
+                        var cartUrl = response.data.cart_url || (typeof wc_add_to_cart_params !== 'undefined' ? wc_add_to_cart_params.cart_url : '/carrinho');
+                        window.location.href = cartUrl;
                     } else {
-                        WCUpsell.showMessage(response.data.message, 'error');
+                        WCUpsell.showMessage(response.data || 'Erro ao adicionar ao carrinho', 'error');
                     }
                 },
-                error: function() {
-                    $('.wc-upsell-kit-selector').removeClass('loading');
-                    WCUpsell.showMessage(wcUpsellParams.i18n.error || 'Erro ao adicionar ao carrinho', 'error');
+                error: function(xhr, status, error) {
+                    $('form.cart').removeClass('loading');
+                    console.error('AJAX Error:', status, error, xhr.responseText);
+                    WCUpsell.showMessage('Erro ao adicionar ao carrinho', 'error');
                 }
             });
         },
