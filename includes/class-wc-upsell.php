@@ -79,7 +79,9 @@ class WC_Upsell {
         // Admin
         if ( is_admin() ) {
             require_once WC_UPSELL_PLUGIN_DIR . 'includes/admin/class-wc-upsell-admin.php';
+            require_once WC_UPSELL_PLUGIN_DIR . 'includes/admin/class-wc-upsell-settings.php';
             $this->admin = new WC_Upsell_Admin();
+            $this->settings = new WC_Upsell_Settings();
         }
 
         // Frontend
@@ -117,6 +119,12 @@ class WC_Upsell {
             array(), 
             WC_UPSELL_VERSION 
         );
+        
+        // Add custom colors
+        $custom_css = $this->get_custom_colors_css();
+        if ( $custom_css ) {
+            wp_add_inline_style( 'wc-upsell-frontend', $custom_css );
+        }
 
         wp_enqueue_script( 
             'wc-upsell-frontend', 
@@ -134,6 +142,68 @@ class WC_Upsell {
                 'add_to_cart' => __( 'Adicionar ao carrinho', 'wc-upsell' ),
             ),
         ) );
+    }
+    
+    /**
+     * Get custom colors CSS
+     */
+    private function get_custom_colors_css() {
+        $border_color = get_option( 'wc_upsell_border_color' );
+        $border_color_selected = get_option( 'wc_upsell_border_color_selected' );
+        $bg_color = get_option( 'wc_upsell_bg_color' );
+        $bg_color_selected = get_option( 'wc_upsell_bg_color_selected' );
+        $text_color = get_option( 'wc_upsell_text_color' );
+        $badge_bg_color = get_option( 'wc_upsell_badge_bg_color' );
+        $badge_text_color = get_option( 'wc_upsell_badge_text_color' );
+        $unit_price_bg_color = get_option( 'wc_upsell_unit_price_bg_color' );
+        $unit_price_text_color = get_option( 'wc_upsell_unit_price_text_color' );
+        
+        $css = '';
+        
+        if ( $border_color ) {
+            $css .= ".wc-upsell-kit-option { border-color: {$border_color} !important; }\n";
+        }
+        
+        if ( $border_color_selected ) {
+            $css .= ".wc-upsell-kit-option.selected { border-color: {$border_color_selected} !important; }\n";
+            $css .= ".wc-upsell-kit-option:hover { border-color: {$border_color_selected} !important; }\n";
+            $css .= ".wc-upsell-radio input[type='radio']:hover { border-color: {$border_color_selected} !important; }\n";
+            $css .= ".wc-upsell-radio input[type='radio']:checked { border-color: {$border_color_selected} !important; }\n";
+            $css .= ".wc-upsell-radio input[type='radio']:checked::after { background: {$border_color_selected} !important; }\n";
+        }
+        
+        if ( $bg_color ) {
+            $css .= ".wc-upsell-kit-option { background-color: {$bg_color} !important; }\n";
+        }
+        
+        if ( $bg_color_selected ) {
+            $css .= ".wc-upsell-kit-option.selected { background-color: {$bg_color_selected} !important; }\n";
+        }
+        
+        if ( $text_color ) {
+            $css .= ".wc-upsell-kit-option { color: {$text_color} !important; }\n";
+            $css .= ".wc-upsell-quantity { color: {$text_color} !important; }\n";
+        }
+        
+        if ( $badge_bg_color ) {
+            $css .= ".wc-upsell-badge { background-color: {$badge_bg_color} !important; }\n";
+        }
+        
+        if ( $badge_text_color ) {
+            $css .= ".wc-upsell-badge { color: {$badge_text_color} !important; }\n";
+        }
+        
+        if ( $unit_price_bg_color ) {
+            $css .= ".wc-upsell-unit-price-badge { background-color: {$unit_price_bg_color} !important; }\n";
+        }
+        
+        if ( $unit_price_text_color ) {
+            $css .= ".wc-upsell-unit-price-badge,\n";
+            $css .= ".wc-upsell-unit-price-badge .woocommerce-Price-amount,\n";
+            $css .= ".wc-upsell-unit-price-badge bdi { color: {$unit_price_text_color} !important; }\n";
+        }
+        
+        return $css;
     }
 
     /**
