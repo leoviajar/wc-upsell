@@ -98,6 +98,11 @@ class WC_Upsell_Frontend {
      * @return bool
      */
     public function hide_quantity_selector( $sold_individually, $product ) {
+        // Only apply on single product page, not in cart
+        if ( ! is_product() ) {
+            return $sold_individually;
+        }
+        
         // Get the product ID (handle variations)
         $product_id = $product->get_id();
         if ( $product->is_type( 'variation' ) ) {

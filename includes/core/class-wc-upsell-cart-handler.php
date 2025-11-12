@@ -63,6 +63,9 @@ class WC_Upsell_Cart_Handler {
         
         $unit_price = floatval( $kit['price'] ) / $quantity;
         
+        // Generate a unique key for this entire kit purchase
+        $kit_unique_key = md5( microtime() . rand() );
+        
         // Add each variation to cart
         $added_items = array();
         foreach ( $variations as $variation_data ) {
@@ -86,7 +89,7 @@ class WC_Upsell_Cart_Handler {
                         'badge_text' => isset( $kit['badge_text'] ) ? $kit['badge_text'] : '',
                     ),
                     'wc_upsell_unit_price' => $unit_price,
-                    'wc_upsell_unique_key' => md5( microtime() . rand() ),
+                    'wc_upsell_unique_key' => $kit_unique_key,
                 )
             );
             
@@ -169,23 +172,87 @@ class WC_Upsell_Cart_Handler {
             return;
         }
         
+        // Group cart items by product and unique kit key
+        $product_groups = array();
+        
         foreach ( $cart->get_cart() as $cart_item_key => $cart_item ) {
-            // Check for unit price (when variation added via AJAX)
-            if ( isset( $cart_item['wc_upsell_unit_price'] ) ) {
-                $unit_price = floatval( $cart_item['wc_upsell_unit_price'] );
-                $cart_item['data']->set_price( $unit_price );
+            if ( isset( $cart_item['wc_upsell_kit'] ) && isset( $cart_item['wc_upsell_unique_key'] ) ) {
+                $product_id = $cart_item['product_id'];
+                $unique_key = $cart_item['wc_upsell_unique_key'];
+                $group_key = $product_id . '_' . $unique_key;
+                
+                if ( ! isset( $product_groups[$group_key] ) ) {
+                    $product_groups[$group_key] = array(
+                        'product_id' => $product_id,
+                        'items' => array(),
+                        'total_quantity' => 0,
+                    );
+                }
+                
+                $product_groups[$group_key]['items'][$cart_item_key] = $cart_item;
+                $product_groups[$group_key]['total_quantity'] += $cart_item['quantity'];
             }
-            // Or check for kit data (simple products)
-            elseif ( isset( $cart_item['wc_upsell_kit'] ) ) {
-                $kit_data = $cart_item['wc_upsell_kit'];
-                $kit_quantity = $kit_data['quantity'];
-                $kit_price = $kit_data['kit_price'];
+        }
+        
+        // Apply progressive pricing to each group
+        foreach ( $product_groups as $group ) {
+            $product_id = $group['product_id'];
+            $total_quantity = $group['total_quantity'];
+            
+            $product_kit = new WC_Upsell_Product_Kit( $product_id );
+            $kits = $product_kit->get_enabled_kits();
+            
+            if ( empty( $kits ) ) {
+                continue;
+            }
+            
+            // Find the best matching kit for the total quantity
+            $matching_kit = null;
+            $max_kit = null;
+            
+            foreach ( $kits as $kit ) {
+                // Track the highest quantity kit
+                if ( ! $max_kit || $kit['quantity'] > $max_kit['quantity'] ) {
+                    $max_kit = $kit;
+                }
                 
-                // Calculate unit price
-                $unit_price = $kit_price / $kit_quantity;
+                // Find exact or closest lower match
+                if ( $kit['quantity'] <= $total_quantity ) {
+                    if ( ! $matching_kit || $kit['quantity'] > $matching_kit['quantity'] ) {
+                        $matching_kit = $kit;
+                    }
+                }
+            }
+            
+            // Calculate unit price
+            $unit_price = 0;
+            
+            if ( $matching_kit ) {
+                // If we found a matching kit, use its pricing
+                $kit_quantity = $matching_kit['quantity'];
+                $kit_price = floatval( $matching_kit['price'] );
                 
-                // Set the new price
-                $cart_item['data']->set_price( $unit_price );
+                if ( $total_quantity <= $kit_quantity ) {
+                    // Exact match or less
+                    $unit_price = $kit_price / $kit_quantity;
+                } else {
+                    // More items than the kit: apply kit price + extra items at unit price
+                    $extra_items = $total_quantity - $kit_quantity;
+                    $unit_price_for_extra = $kit_price / $kit_quantity;
+                    $total_price = $kit_price + ( $extra_items * $unit_price_for_extra );
+                    $unit_price = $total_price / $total_quantity;
+                }
+            } elseif ( $max_kit ) {
+                // No matching kit (quantity lower than smallest kit or higher than largest)
+                // Use the highest kit's unit price
+                $unit_price = floatval( $max_kit['price'] ) / $max_kit['quantity'];
+            }
+            
+            // Apply the calculated unit price to all items in this group
+            if ( $unit_price > 0 ) {
+                foreach ( $group['items'] as $cart_item_key => $cart_item ) {
+                    $cart->cart_contents[$cart_item_key]['data']->set_price( $unit_price );
+                }
             }
         }
     }
@@ -224,7 +291,7 @@ class WC_Upsell_Cart_Handler {
     }
 
     /**
-     * AJAX handler for adding kit to cart
+     * Add to cart via AJAX
      */
     public function ajax_add_to_cart() {
         check_ajax_referer( 'wc-upsell-nonce', 'nonce' );
