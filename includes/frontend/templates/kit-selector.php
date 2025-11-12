@@ -81,13 +81,13 @@ if ( $is_variable ) {
                 <div class="wc-upsell-kit-pricing">
                     <div class="wc-upsell-price-main">
                         <?php echo wc_price( $kit_price ); ?>
+                        
+                        <?php if ( isset( $kit['compare_price'] ) && $kit['compare_price'] > 0 ) : ?>
+                        <div class="wc-upsell-price-compare">
+                            <?php echo wc_price( $kit['compare_price'] ); ?>
+                        </div>
+                        <?php endif; ?>
                     </div>
-                    
-                    <?php if ( $savings > 0 ) : ?>
-                    <div class="wc-upsell-price-regular">
-                        <?php echo wc_price( $normal_total ); ?>
-                    </div>
-                    <?php endif; ?>
                 </div>
             </div>
             

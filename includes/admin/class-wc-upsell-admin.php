@@ -21,11 +21,12 @@ class WC_Upsell_Admin {
         // Add menu
         add_action( 'admin_menu', array( $this, 'add_admin_menu' ), 99 );
         
-        // Add product meta box
-        add_action( 'add_meta_boxes', array( $this, 'add_product_meta_box' ) );
+        // Add product data tab
+        add_filter( 'woocommerce_product_data_tabs', array( $this, 'add_product_data_tab' ) );
+        add_action( 'woocommerce_product_data_panels', array( $this, 'add_product_data_panel' ) );
         
-        // Save product meta box
-        add_action( 'save_post_product', array( $this, 'save_product_meta_box' ), 10, 2 );
+        // Save product data
+        add_action( 'woocommerce_process_product_meta', array( $this, 'save_product_data' ) );
         
         // AJAX handlers
         add_action( 'wp_ajax_wc_upsell_save_kit', array( $this, 'ajax_save_kit' ) );
@@ -59,43 +60,44 @@ class WC_Upsell_Admin {
     }
 
     /**
-     * Add product meta box
+     * Add product data tab
+     *
+     * @param array $tabs Product data tabs
+     * @return array Modified tabs
      */
-    public function add_product_meta_box() {
-        add_meta_box(
-            'wc_upsell_product_kits',
-            __( 'Upsell Kits', 'wc-upsell' ),
-            array( $this, 'render_product_meta_box' ),
-            'product',
-            'normal',
-            'high'
+    public function add_product_data_tab( $tabs ) {
+        $tabs['wc_upsell'] = array(
+            'label'    => __( 'Upsell Kits', 'wc-upsell' ),
+            'target'   => 'wc_upsell_product_data',
+            'class'    => array( 'show_if_simple', 'show_if_variable' ),
+            'priority' => 65,
         );
+        return $tabs;
     }
 
     /**
-     * Render product meta box
-     *
-     * @param WP_Post $post Post object
+     * Add product data panel
      */
-    public function render_product_meta_box( $post ) {
+    public function add_product_data_panel() {
+        global $post;
+        
         $product_kit = new WC_Upsell_Product_Kit( $post->ID );
         $kits = $product_kit->get_kits();
         
-        wp_nonce_field( 'wc_upsell_product_meta_box', 'wc_upsell_meta_box_nonce' );
+        wp_nonce_field( 'wc_upsell_product_data', 'wc_upsell_data_nonce' );
         
-        include WC_UPSELL_PLUGIN_DIR . 'includes/admin/views/product-meta-box.php';
+        include WC_UPSELL_PLUGIN_DIR . 'includes/admin/views/product-data-panel.php';
     }
 
     /**
-     * Save product meta box
+     * Save product data
      *
      * @param int $post_id Post ID
-     * @param WP_Post $post Post object
      */
-    public function save_product_meta_box( $post_id, $post ) {
+    public function save_product_data( $post_id ) {
         // Check nonce
-        if ( ! isset( $_POST['wc_upsell_meta_box_nonce'] ) || 
-             ! wp_verify_nonce( $_POST['wc_upsell_meta_box_nonce'], 'wc_upsell_product_meta_box' ) ) {
+        if ( ! isset( $_POST['wc_upsell_data_nonce'] ) || 
+             ! wp_verify_nonce( $_POST['wc_upsell_data_nonce'], 'wc_upsell_product_data' ) ) {
             return;
         }
 
@@ -118,6 +120,7 @@ class WC_Upsell_Admin {
                     $kits[] = array(
                         'quantity' => absint( $kit_data['quantity'] ),
                         'price' => floatval( $kit_data['price'] ),
+                        'compare_price' => isset( $kit_data['compare_price'] ) && ! empty( $kit_data['compare_price'] ) ? floatval( $kit_data['compare_price'] ) : 0,
                         'badge_text' => isset( $kit_data['badge_text'] ) ? sanitize_text_field( $kit_data['badge_text'] ) : '',
                         'badge_color' => isset( $kit_data['badge_color'] ) ? sanitize_hex_color( $kit_data['badge_color'] ) : '#000000',
                         'enabled' => isset( $kit_data['enabled'] ) && $kit_data['enabled'] === 'yes',

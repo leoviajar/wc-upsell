@@ -1,6 +1,6 @@
 <?php
 /**
- * Product Meta Box Template
+ * Product Data Panel Template
  *
  * @package WC_Upsell
  * @since 1.0.0
@@ -17,10 +17,10 @@ $product = wc_get_product( $post->ID );
 $regular_price = $product ? $product->get_regular_price() : 0;
 ?>
 
-<div class="wc-upsell-meta-box">
-    <div class="wc-upsell-meta-header">
+<div id="wc_upsell_product_data" class="panel woocommerce_options_panel">
+    <div class="wc-upsell-panel-header">
         <p class="description">
-            <?php esc_html_e( 'Configure kits de upsell com descontos progressivos. Os kits serão exibidos na página do produto.', 'wc-upsell' ); ?>
+            <?php esc_html_e( 'Configure kits de upsell com preços personalizados. Os kits serão exibidos na página do produto.', 'wc-upsell' ); ?>
         </p>
         <?php if ( $regular_price ) : ?>
             <p class="wc-upsell-product-price">
@@ -39,7 +39,6 @@ $regular_price = $product ? $product->get_regular_price() : 0;
                     <th class="price-column"><?php esc_html_e( 'Preço do Kit', 'wc-upsell' ); ?></th>
                     <th class="compare-price-column"><?php esc_html_e( 'Preço De:', 'wc-upsell' ); ?></th>
                     <th class="unit-price-column"><?php esc_html_e( 'Preço/Uni', 'wc-upsell' ); ?></th>
-                    <th class="discount-column"><?php esc_html_e( 'Desconto', 'wc-upsell' ); ?></th>
                     <th class="badge-column"><?php esc_html_e( 'Badge', 'wc-upsell' ); ?></th>
                     <th class="color-column"><?php esc_html_e( 'Cor', 'wc-upsell' ); ?></th>
                     <th class="enabled-column"><?php esc_html_e( 'Ativo', 'wc-upsell' ); ?></th>
@@ -50,11 +49,6 @@ $regular_price = $product ? $product->get_regular_price() : 0;
                 <?php if ( ! empty( $kits ) ) : ?>
                     <?php foreach ( $kits as $index => $kit ) : 
                         $unit_price = $kit['quantity'] > 0 ? $kit['price'] / $kit['quantity'] : 0;
-                        $discount = 0;
-                        if ( $regular_price > 0 && $kit['quantity'] > 0 ) {
-                            $normal_total = $regular_price * $kit['quantity'];
-                            $discount = ( ( $normal_total - $kit['price'] ) / $normal_total ) * 100;
-                        }
                     ?>
                     <tr class="wc-upsell-kit-row">
                         <td class="sort-handle">
@@ -91,9 +85,6 @@ $regular_price = $product ? $product->get_regular_price() : 0;
                             <span class="unit-price-display"><?php echo wc_price( $unit_price ); ?></span>
                         </td>
                         <td>
-                            <span class="discount-display"><?php echo round( $discount, 1 ); ?>%</span>
-                        </td>
-                        <td>
                             <input type="text" 
                                    name="wc_upsell_kits[<?php echo $index; ?>][badge_text]" 
                                    value="<?php echo esc_attr( $kit['badge_text'] ); ?>"
@@ -124,26 +115,29 @@ $regular_price = $product ? $product->get_regular_price() : 0;
         </table>
 
         <div class="wc-upsell-actions">
-            <button type="button" id="add-new-kit" class="button button-primary">
+            <button type="button" id="add-new-kit" class="button button-primary" 
+            style="
+                align-items: center;
+                display: flex;
+                gap: 8px;
+            ">
                 <span class="dashicons dashicons-plus-alt"></span>
                 <?php esc_html_e( 'Adicionar Kit', 'wc-upsell' ); ?>
             </button>
         </div>
     </div>
 
-    <div class="wc-upsell-meta-footer">
+    <div class="wc-upsell-panel-footer">
         <p class="description">
             <strong><?php esc_html_e( 'Dicas:', 'wc-upsell' ); ?></strong><br>
             • <?php esc_html_e( 'Configure múltiplos kits com diferentes quantidades', 'wc-upsell' ); ?><br>
-            • <?php esc_html_e( 'Use badges para destacar ofertas (ex: "Mais Vendido", "Maior Desconto")', 'wc-upsell' ); ?><br>
-            • <?php esc_html_e( 'O desconto é calculado automaticamente com base no preço regular', 'wc-upsell' ); ?><br>
+            • <?php esc_html_e( 'Use badges para destacar ofertas (ex: "Mais Vendido", "Melhor Oferta")', 'wc-upsell' ); ?><br>
             • <?php esc_html_e( 'Desabilite kits temporariamente sem removê-los', 'wc-upsell' ); ?>
         </p>
     </div>
-</div>
 
-<!-- Template para novo kit -->
-<script type="text/template" id="wc-upsell-kit-template">
+    <!-- Template para novo kit -->
+    <script type="text/template" id="wc-upsell-kit-template">
 <tr class="wc-upsell-kit-row">
     <td class="sort-handle">
         <span class="dashicons dashicons-menu"></span>
@@ -179,9 +173,6 @@ $regular_price = $product ? $product->get_regular_price() : 0;
         <span class="unit-price-display"><?php echo wc_price( $regular_price ); ?></span>
     </td>
     <td>
-        <span class="discount-display">0%</span>
-    </td>
-    <td>
         <input type="text" 
                name="wc_upsell_kits[{{INDEX}}][badge_text]" 
                value=""
@@ -209,14 +200,11 @@ $regular_price = $product ? $product->get_regular_price() : 0;
 </script>
 
 <style>
-.wc-upsell-meta-box {
-    margin: 0 -12px;
-}
-
-.wc-upsell-meta-header {
+.wc-upsell-panel-header {
     padding: 12px;
     background: #f0f0f1;
     border-bottom: 1px solid #ddd;
+    margin: 0 -12px 12px -12px;
 }
 
 .wc-upsell-product-price {
@@ -227,7 +215,7 @@ $regular_price = $product ? $product->get_regular_price() : 0;
 }
 
 .wc-upsell-kits-container {
-    padding: 12px;
+    padding: 0 12px;
 }
 
 .wc-upsell-kits-table {
@@ -255,12 +243,12 @@ $regular_price = $product ? $product->get_regular_price() : 0;
     width: 120px;
 }
 
-.unit-price-column {
-    width: 100px;
+.compare-price-column {
+    width: 120px;
 }
 
-.discount-column {
-    width: 80px;
+.unit-price-column {
+    width: 100px;
 }
 
 .badge-column {
@@ -290,8 +278,7 @@ $regular_price = $product ? $product->get_regular_price() : 0;
     color: #333;
 }
 
-.unit-price-display,
-.discount-display {
+.unit-price-display {
     font-weight: 600;
     color: #2271b1;
 }
@@ -307,10 +294,11 @@ $regular_price = $product ? $product->get_regular_price() : 0;
     margin-top: 10px;
 }
 
-.wc-upsell-meta-footer {
+.wc-upsell-panel-footer {
     padding: 12px;
     background: #f0f0f1;
     border-top: 1px solid #ddd;
+    margin: 12px -12px 0 -12px;
 }
 
 .remove-kit {
@@ -322,3 +310,4 @@ $regular_price = $product ? $product->get_regular_price() : 0;
     border-color: #dc3232;
 }
 </style>
+</div>

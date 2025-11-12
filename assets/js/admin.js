@@ -33,8 +33,11 @@
          * Bind events
          */
         bindEvents: function() {
+            console.log('WC Upsell Admin: Binding events...');
+            
             // Add new kit
             $(document).on('click', '#add-new-kit', function(e) {
+                console.log('WC Upsell Admin: Add new kit button clicked');
                 e.preventDefault();
                 WCUpsellAdmin.addKit();
             });
@@ -66,10 +69,15 @@
          * Add new kit
          */
         addKit: function() {
+            console.log('WC Upsell Admin: addKit() called');
             var template = $('#wc-upsell-kit-template').html();
+            
+            console.log('WC Upsell Admin: Template found:', template ? 'yes' : 'no');
+            console.log('WC Upsell Admin: Template length:', template ? template.length : 0);
             
             if (!template) {
                 alert('Erro: Template do kit não foi encontrado. Verifique o código.');
+                console.error('WC Upsell Admin: Template element exists?', $('#wc-upsell-kit-template').length);
                 return;
             }
             
@@ -77,6 +85,8 @@
             
             $('#wc-upsell-kits-list').append(template);
             this.kitIndex++;
+            
+            console.log('WC Upsell Admin: Kit added successfully. New index:', this.kitIndex);
             
             // Update calculations for new row
             var $newRow = $('#wc-upsell-kits-list tr:last');
@@ -134,18 +144,9 @@
             if (quantity > 0) {
                 // Calculate unit price
                 var unitPrice = kitPrice / quantity;
-                
-                // Calculate discount
-                var normalTotal = regularPrice * quantity;
-                var discount = 0;
-                
-                if (normalTotal > 0 && kitPrice < normalTotal) {
-                    discount = ((normalTotal - kitPrice) / normalTotal) * 100;
-                }
 
-                // Update displays
+                // Update display
                 $row.find('.unit-price-display').html(this.formatPrice(unitPrice));
-                $row.find('.discount-display').text(discount.toFixed(1) + '%');
             }
         },
 
@@ -187,7 +188,8 @@
          */
         showMessage: function(message, type) {
             var $message = $('<div class="notice notice-' + type + ' is-dismissible"><p>' + message + '</p></div>');
-            $('.wc-upsell-meta-box').prepend($message);
+            var $container = $('.wc-upsell-meta-box').length ? $('.wc-upsell-meta-box') : $('#wc_upsell_product_data');
+            $container.prepend($message);
             
             setTimeout(function() {
                 $message.fadeOut(function() {
@@ -199,8 +201,12 @@
 
     // Initialize when document is ready
     $(document).ready(function() {
-        if ($('.wc-upsell-meta-box').length) {
+        // Check for both meta box and product data panel
+        if ($('.wc-upsell-meta-box').length || $('#wc_upsell_product_data').length) {
+            console.log('WC Upsell Admin: Initializing...');
             WCUpsellAdmin.init();
+        } else {
+            console.log('WC Upsell Admin: Container not found');
         }
     });
 

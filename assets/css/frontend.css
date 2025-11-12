@@ -163,16 +163,39 @@
 /* Pricing Section */
 .wc-upsell-kit-pricing {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     gap: 12px;
 }
 
-.wc-upsell-price-main,
-.wc-upsell-price-main *,
-.wc-upsell-price-main .woocommerce-Price-amount,
-.wc-upsell-price-main bdi {
+.wc-upsell-price-main {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.wc-upsell-price-main > .woocommerce-Price-amount,
+.wc-upsell-price-main > span > .woocommerce-Price-amount,
+.wc-upsell-price-main > span > bdi {
     font-size: 18px !important;
     font-weight: 700 !important;
+    color: #111111 !important;
+    line-height: 1 !important;
+}
+
+.wc-upsell-price-compare {
+    font-size: 14px;
+    color: #999 !important;
+    text-decoration: line-through;
+    display: flex;
+    justify-content: end;
+}
+
+.wc-upsell-price-compare *,
+.wc-upsell-price-compare .woocommerce-Price-amount,
+.wc-upsell-price-compare bdi {
+    font-size: 14px !important;
+    color: #999 !important;
+    text-decoration: line-through !important;
     color: #111111 !important;
     line-height: 1 !important;
 }
