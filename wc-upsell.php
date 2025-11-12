@@ -1,11 +1,11 @@
 <?php
 /**
  * Plugin Name: WC Upsell
- * Plugin URI: https://github.com/yourusername/wc-upsell
+ * Plugin URI: https://embreve.com
  * Description: Plugin profissional de upsell com kits e descontos progressivos para WooCommerce
  * Version: 1.0.0
- * Author: Seu Nome
- * Author URI: https://seusite.com
+ * Author: Leonardo
+ * Author URI: https://embreve.com
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: wc-upsell
@@ -56,6 +56,24 @@ function wc_upsell_init() {
     WC_Upsell::instance();
 }
 add_action( 'plugins_loaded', 'wc_upsell_init' );
+
+/**
+ * Setup plugin updates from GitHub
+ */
+require WC_UPSELL_PLUGIN_DIR . 'plugin-update-checker/plugin-update-checker.php';
+use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
+
+$myUpdateChecker = PucFactory::buildUpdateChecker(
+    'https://github.com/leoviajar/wc-upsell/',
+    __FILE__,
+    'wc-upsell'
+);
+
+// Set the branch that contains the stable release
+$myUpdateChecker->setBranch('main');
+
+// Optional: If your GitHub repo is private, specify the access token
+// $myUpdateChecker->setAuthentication('your-token-here');
 
 /**
  * Display notice if WooCommerce is not active
