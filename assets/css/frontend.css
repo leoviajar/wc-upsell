@@ -10,6 +10,8 @@
     margin: 30px 0;
     padding: 25px;
     border-radius: 8px;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .wc-upsell-title {
@@ -27,6 +29,7 @@
     display: flex;
     flex-direction: column;
     gap: 15px;
+    margin-bottom: 20px;
 }
 
 /* Kit Option */
@@ -38,6 +41,8 @@
     padding: 0;
     cursor: pointer;
     overflow: visible;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .wc-upsell-kit-option:hover {
@@ -82,6 +87,8 @@
     align-items: center;
     justify-content: space-between;
     padding: 20px 25px;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 /* Only show border bottom when variations container exists and is visible */
@@ -165,6 +172,7 @@
     display: flex;
     align-items: flex-end;
     gap: 12px;
+    
 }
 
 .wc-upsell-price-main {
@@ -196,7 +204,6 @@
     font-size: 14px !important;
     color: #999 !important;
     text-decoration: line-through !important;
-    color: #111111 !important;
     line-height: 1 !important;
 }
 
@@ -212,51 +219,34 @@
 /* Responsive */
 @media (max-width: 768px) {
     .wc-upsell-kit-main {
-        flex-direction: column;
         align-items: flex-start;
-        gap: 15px;
+        gap: 4px;
         padding: 15px 20px;
-    }
-    
-    .wc-upsell-kit-pricing {
-        width: 100%;
-        justify-content: flex-start;
-    }
-    
-    .wc-upsell-variation-selects {
-        flex-direction: column;
+        flex-wrap: wrap;
     }
     
     .wc-upsell-title {
         font-size: 18px;
     }
     
-    .wc-upsell-price-main {
-        font-size: 24px;
-    }
-    
     .wc-upsell-badge {
-        top: 10px;
-        right: 10px;
         font-size: 9px;
         padding: 4px 10px;
     }
-    
-    .wc-upsell-variations-container {
-        padding: 15px 20px;
-    }
-}
 
-@media (max-width: 480px) {
-    .wc-upsell-variation-item {
+    .wc-upsell-quantity {
+        font-size: 16px;
         flex-direction: column;
         align-items: flex-start;
-        gap: 10px;
     }
     
-    .wc-upsell-variation-selects {
-        width: 100%;
-        flex-direction: column;
+    .wc-upsell-unit-price-badge {
+        align-self: flex-start;
+    }
+    .wc-upsell-price-main > .woocommerce-Price-amount,
+    .wc-upsell-price-main > span > .woocommerce-Price-amount,
+    .wc-upsell-price-main > span > bdi {
+        font-size: 16px !important;
     }
 }
 
@@ -273,6 +263,7 @@
 /* Integration with WooCommerce */
 .single-product .wc-upsell-kit-selector {
     margin: 0;
+    padding: 0
 }
 
 /* Hide default quantity selector when using kits */
@@ -282,7 +273,7 @@
 
 /* Variation Selector Styles */
 .wc-upsell-variations-container {
-    padding: 20px 25px;
+    padding: 20px 14px;
     background: #fafafa;
     border-top: 1px solid #e0e0e0;
     border-bottom-left-radius: 14px;
@@ -306,6 +297,7 @@
 
 .wc-upsell-variation-header-item {
     flex: 1;
+    min-width: 0;
     font-size: 11px;
     font-weight: 700;
     color: #333;
@@ -322,7 +314,6 @@
 
 .wc-upsell-variation-item {
     display: flex;
-    gap: 12px;
     align-items: center;
 }
 
@@ -339,6 +330,11 @@
     gap: 15px;
 }
 
+.wc-upsell-variation-field {
+    flex: 0 1 200px;
+    min-width: 0;
+}
+
 .wc-upsell-variations-container .wc-upsell-variation-select,
 .wc-upsell-variation-field select.wc-upsell-variation-select {
     width: 100%;
@@ -350,5 +346,3 @@
     color: #000;
     text-transform: capitalize;
 }
-
-

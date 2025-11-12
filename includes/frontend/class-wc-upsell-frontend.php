@@ -23,6 +23,9 @@ class WC_Upsell_Frontend {
         
         // Modify add to cart button
         add_filter( 'woocommerce_product_single_add_to_cart_text', array( $this, 'modify_add_to_cart_text' ), 10, 2 );
+        
+        // Hide quantity selector when kits are active
+        add_filter( 'woocommerce_is_sold_individually', array( $this, 'hide_quantity_selector' ), 10, 2 );
     }
 
     /**
@@ -85,6 +88,31 @@ class WC_Upsell_Frontend {
         }
         
         return $text;
+    }
+
+    /**
+     * Hide quantity selector when kits are active
+     *
+     * @param bool $sold_individually Whether product is sold individually
+     * @param WC_Product $product Product object
+     * @return bool
+     */
+    public function hide_quantity_selector( $sold_individually, $product ) {
+        // Get the product ID (handle variations)
+        $product_id = $product->get_id();
+        if ( $product->is_type( 'variation' ) ) {
+            $product_id = $product->get_parent_id();
+        }
+        
+        $product_kit = new WC_Upsell_Product_Kit( $product_id );
+        $kits = $product_kit->get_enabled_kits();
+        
+        // If there are active kits, hide the quantity selector
+        if ( ! empty( $kits ) ) {
+            return true;
+        }
+        
+        return $sold_individually;
     }
 
     /**
