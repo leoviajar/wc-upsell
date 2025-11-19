@@ -42,6 +42,10 @@ class WC_Upsell_Cart_Handler {
         // Hook into smart checkout quantity change to enforce minimum
         add_action( 'wp_ajax_smart_checkout_quantity_chage', array( $this, 'block_kit_quantity_change' ), 5 );
         add_action( 'wp_ajax_nopriv_smart_checkout_quantity_chage', array( $this, 'block_kit_quantity_change' ), 5 );
+        
+        // Store item data before removal and handle cascade removal
+        add_action( 'woocommerce_remove_cart_item', array( $this, 'store_item_before_removal' ), 10, 2 );
+        add_action( 'woocommerce_cart_item_removed', array( $this, 'remove_remaining_kit_items' ), 10, 2 );
     }
     
     /**
@@ -693,6 +697,69 @@ class WC_Upsell_Cart_Handler {
     }
 
     /**
+     * Remove remaining kit items after one is removed
+     * This ensures all items from the same kit group are removed together
+     *
+     * @param string $cart_item_key Cart item key that was removed
+     * @param WC_Cart $cart Cart object
+     */
+    public function remove_remaining_kit_items( $cart_item_key, $cart ) {
+        // Get the removed item data from session (stored before removal)
+        $removed_item = WC()->session->get( 'wc_upsell_removed_item_' . $cart_item_key );
+        
+        if ( ! $removed_item ) {
+            return;
+        }
+        
+        // Check if this is a kit item
+        if ( ! isset( $removed_item['wc_upsell_kit'] ) || ! isset( $removed_item['wc_upsell_unique_key'] ) ) {
+            WC()->session->set( 'wc_upsell_removed_item_' . $cart_item_key, null );
+            return;
+        }
+        
+        $product_id = $removed_item['product_id'];
+        $unique_key = $removed_item['wc_upsell_unique_key'];
+        
+        // Get the minimum kit quantity
+        $product_kit = new WC_Upsell_Product_Kit( $product_id );
+        $min_kit_quantity = $product_kit->get_minimum_kit_quantity();
+        
+        if ( $min_kit_quantity <= 0 ) {
+            WC()->session->set( 'wc_upsell_removed_item_' . $cart_item_key, null );
+            return;
+        }
+        
+        // Calculate remaining quantity in the kit group
+        $remaining_quantity = 0;
+        $remaining_items = array();
+        
+        foreach ( $cart->get_cart() as $key => $item ) {
+            if ( isset( $item['wc_upsell_unique_key'] ) && 
+                 $item['wc_upsell_unique_key'] === $unique_key && 
+                 $item['product_id'] === $product_id ) {
+                
+                $remaining_quantity += $item['quantity'];
+                $remaining_items[] = $key;
+            }
+        }
+        
+        // If remaining quantity is below minimum, remove all remaining items
+        if ( $remaining_quantity < $min_kit_quantity && count( $remaining_items ) > 0 ) {
+            foreach ( $remaining_items as $key ) {
+                $cart->remove_cart_item( $key );
+            }
+            
+            wc_add_notice(
+                __( 'Todo o kit foi removido do carrinho.', 'wc-upsell' ),
+                'notice'
+            );
+        }
+        
+        // Clean up session
+        WC()->session->set( 'wc_upsell_removed_item_' . $cart_item_key, null );
+    }
+
+    /**
      * Validate cart items on checkout to enforce minimum quantities
      */
     public function validate_cart_on_checkout() {
@@ -766,5 +833,19 @@ class WC_Upsell_Cart_Handler {
         }
         
         return false;
+    }
+    
+    /**
+     * Store item data before removal for cascade removal logic
+     *
+     * @param string $cart_item_key Cart item key being removed
+     * @param WC_Cart $cart Cart object
+     */
+    public function store_item_before_removal( $cart_item_key, $cart ) {
+        $cart_contents = $cart->get_cart();
+        
+        if ( isset( $cart_contents[ $cart_item_key ] ) ) {
+            WC()->session->set( 'wc_upsell_removed_item_' . $cart_item_key, $cart_contents[ $cart_item_key ] );
+        }
     }
 }

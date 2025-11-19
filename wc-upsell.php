@@ -3,7 +3,7 @@
  * Plugin Name: WC Upsell
  * Plugin URI: https://embreve.com
  * Description: Plugin profissional de upsell com kits e descontos progressivos para WooCommerce
- * Version: 1.0.1
+ * Version: 1.0.2
  * Author: Leonardo
  * Author URI: https://embreve.com
  * License: GPL v2 or later
