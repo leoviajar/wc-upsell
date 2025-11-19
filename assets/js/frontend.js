@@ -301,6 +301,4 @@
     // Initialize when document is ready
     $(document).ready(function() {
         WCUpsell.init();
-    });
-
-})(jQuery);
+    });})(jQuery);

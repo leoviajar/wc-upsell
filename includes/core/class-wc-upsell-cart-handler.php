@@ -28,9 +28,20 @@ class WC_Upsell_Cart_Handler {
         // Display kit info in cart
         add_filter( 'woocommerce_get_item_data', array( $this, 'display_kit_info_in_cart' ), 10, 2 );
         
+        // Validate minimum quantity in cart and checkout
+        add_filter( 'woocommerce_update_cart_validation', array( $this, 'validate_cart_quantity_minimum' ), 10, 4 );
+        add_action( 'woocommerce_check_cart_items', array( $this, 'validate_cart_on_checkout' ) );
+        add_action( 'woocommerce_after_cart_item_quantity_update', array( $this, 'revert_invalid_quantity_update' ), 10, 4 );
+        add_filter( 'woocommerce_update_cart_action_cart_updated', array( $this, 'force_cart_refresh_on_revert' ), 10, 1 );
+        add_filter( 'wc_smart_checkout_quantity_input_min', array( $this, 'set_minimum_quantity_for_kit' ), 10, 2 );
+        
         // AJAX handler for adding kit to cart
         add_action( 'wp_ajax_wc_upsell_add_kit', array( $this, 'ajax_add_kit_to_cart' ) );
         add_action( 'wp_ajax_nopriv_wc_upsell_add_kit', array( $this, 'ajax_add_kit_to_cart' ) );
+        
+        // Hook into smart checkout quantity change to enforce minimum
+        add_action( 'wp_ajax_smart_checkout_quantity_chage', array( $this, 'block_kit_quantity_change' ), 5 );
+        add_action( 'wp_ajax_nopriv_smart_checkout_quantity_chage', array( $this, 'block_kit_quantity_change' ), 5 );
     }
     
     /**
@@ -265,15 +276,29 @@ class WC_Upsell_Cart_Handler {
      * @return array Modified item data
      */
     public function display_kit_info_in_cart( $item_data, $cart_item ) {
-        if ( isset( $cart_item['wc_upsell_kit'] ) ) {
+        if ( isset( $cart_item['wc_upsell_kit'] ) && isset( $cart_item['wc_upsell_unique_key'] ) ) {
             $kit_data = $cart_item['wc_upsell_kit'];
+            $unique_key = $cart_item['wc_upsell_unique_key'];
+            $product_id = $cart_item['product_id'];
+            
+            // Calculate the current total quantity for this kit group
+            $total_quantity = 0;
+            $cart = WC()->cart->get_cart();
+            
+            foreach ( $cart as $key => $item ) {
+                if ( isset( $item['wc_upsell_unique_key'] ) && 
+                     $item['wc_upsell_unique_key'] === $unique_key && 
+                     $item['product_id'] === $product_id ) {
+                    $total_quantity += $item['quantity'];
+                }
+            }
             
             $item_data[] = array(
                 'key' => __( 'Kit', 'wc-upsell' ),
                 'value' => sprintf( 
                     /* translators: %d: kit quantity */
                     __( '%d Unidades', 'wc-upsell' ), 
-                    $kit_data['quantity'] 
+                    $total_quantity 
                 ),
                 'display' => '',
             );
@@ -422,6 +447,306 @@ class WC_Upsell_Cart_Handler {
      */
     public function cart_has_kits() {
         return ! empty( $this->get_kit_cart_items() );
+    }
+
+    /**
+     * Validate minimum quantity when updating cart
+     *
+     * @param bool $passed Validation status
+     * @param string $cart_item_key Cart item key
+     * @param array $values Cart item values
+     * @param int $quantity New quantity
+     * @return bool
+     */
+    public function validate_cart_quantity_minimum( $passed, $cart_item_key, $values, $quantity ) {
+        // Check if this is a kit item
+        if ( ! isset( $values['wc_upsell_kit'] ) || ! isset( $values['wc_upsell_unique_key'] ) ) {
+            return $passed;
+        }
+        
+        $product_id = $values['product_id'];
+        $unique_key = $values['wc_upsell_unique_key'];
+        
+        // Get all items in the same kit group
+        $cart = WC()->cart->get_cart();
+        $group_total_quantity = 0;
+        
+        foreach ( $cart as $key => $item ) {
+            if ( isset( $item['wc_upsell_unique_key'] ) && 
+                 $item['wc_upsell_unique_key'] === $unique_key && 
+                 $item['product_id'] === $product_id ) {
+                
+                // Calculate new total for this group
+                if ( $key === $cart_item_key ) {
+                    $group_total_quantity += $quantity; // Use the new quantity
+                } else {
+                    $group_total_quantity += $item['quantity'];
+                }
+            }
+        }
+        
+        // Get the minimum kit quantity for this product
+        $product_kit = new WC_Upsell_Product_Kit( $product_id );
+        $min_kit_quantity = $product_kit->get_minimum_kit_quantity();
+        
+        // If there's a minimum and the new total is below it, prevent the update
+        if ( $min_kit_quantity > 0 && $group_total_quantity < $min_kit_quantity ) {
+            wc_add_notice( 
+                sprintf(
+                    /* translators: %d: minimum quantity */
+                    __( 'A quantidade mínima para este kit é %d unidades. Não é possível reduzir abaixo deste valor.', 'wc-upsell' ),
+                    $min_kit_quantity
+                ),
+                'error'
+            );
+            
+            return false;
+        }
+        
+        return $passed;
+    }
+
+    /**
+     * Revert quantity update if it violates minimum kit quantity
+     * This runs after the quantity has been updated to ensure visual consistency
+     *
+     * @param string $cart_item_key Cart item key
+     * @param int $quantity New quantity
+     * @param int $old_quantity Old quantity
+     * @param WC_Cart $cart Cart object
+     */
+    public function revert_invalid_quantity_update( $cart_item_key, $quantity, $old_quantity, $cart ) {
+        $cart_contents = $cart->get_cart();
+        
+        if ( ! isset( $cart_contents[ $cart_item_key ] ) ) {
+            return;
+        }
+        
+        $cart_item = $cart_contents[ $cart_item_key ];
+        
+        // Check if this is a kit item
+        if ( ! isset( $cart_item['wc_upsell_kit'] ) || ! isset( $cart_item['wc_upsell_unique_key'] ) ) {
+            return;
+        }
+        
+        $product_id = $cart_item['product_id'];
+        $unique_key = $cart_item['wc_upsell_unique_key'];
+        
+        // Calculate total quantity for this kit group with the new quantity
+        $group_total_quantity = 0;
+        foreach ( $cart_contents as $key => $item ) {
+            if ( isset( $item['wc_upsell_unique_key'] ) && 
+                 $item['wc_upsell_unique_key'] === $unique_key && 
+                 $item['product_id'] === $product_id ) {
+                $group_total_quantity += $item['quantity'];
+            }
+        }
+        
+        // Get the minimum kit quantity for this product
+        $product_kit = new WC_Upsell_Product_Kit( $product_id );
+        $min_kit_quantity = $product_kit->get_minimum_kit_quantity();
+        
+        // If the new total is below minimum, revert to old quantity
+        if ( $min_kit_quantity > 0 && $group_total_quantity < $min_kit_quantity ) {
+            // Revert the quantity in the cart
+            $cart->cart_contents[ $cart_item_key ]['quantity'] = $old_quantity;
+            
+            // Force update the cart session to reflect the revert
+            $cart->set_cart_contents( $cart->cart_contents );
+            
+            // Set a flag for AJAX to know quantity was reverted
+            if ( defined( 'DOING_AJAX' ) && DOING_AJAX ) {
+                set_transient( 'wc_upsell_quantity_reverted_' . $cart_item_key, $old_quantity, 30 );
+            }
+            
+            // Add notice to be displayed
+            wc_add_notice( 
+                sprintf(
+                    /* translators: %d: minimum quantity */
+                    __( 'A quantidade mínima para este kit é %d unidades. A quantidade não pode ser reduzida.', 'wc-upsell' ),
+                    $min_kit_quantity
+                ),
+                'error'
+            );
+        }
+    }
+
+    /**
+     * Force cart refresh when quantity was reverted
+     *
+     * @param bool $cart_updated Whether cart was updated
+     * @return bool
+     */
+    public function force_cart_refresh_on_revert( $cart_updated ) {
+        // Always return true to force page reload when there are notices
+        if ( wc_notice_count( 'error' ) > 0 ) {
+            return true;
+        }
+        return $cart_updated;
+    }
+
+    /**
+     * Set minimum quantity for kit items in smart checkout
+     *
+     * @param int $min_value Minimum value
+     * @param WC_Product $_product Product object
+     * @return int
+     */
+    public function set_minimum_quantity_for_kit( $min_value, $_product ) {
+        // Get current cart item being processed
+        $cart = WC()->cart->get_cart();
+        
+        foreach ( $cart as $cart_item ) {
+            if ( $cart_item['product_id'] === $_product->get_id() && 
+                 isset( $cart_item['wc_upsell_kit'] ) && 
+                 isset( $cart_item['wc_upsell_unique_key'] ) ) {
+                
+                // Get the minimum kit quantity for this product
+                $product_kit = new WC_Upsell_Product_Kit( $_product->get_id() );
+                $min_kit_quantity = $product_kit->get_minimum_kit_quantity();
+                
+                if ( $min_kit_quantity > 0 ) {
+                    // Calculate total quantity for this kit group
+                    $unique_key = $cart_item['wc_upsell_unique_key'];
+                    $total_quantity = 0;
+                    
+                    foreach ( $cart as $item ) {
+                        if ( isset( $item['wc_upsell_unique_key'] ) && 
+                             $item['wc_upsell_unique_key'] === $unique_key && 
+                             $item['product_id'] === $_product->get_id() ) {
+                            $total_quantity += $item['quantity'];
+                        }
+                    }
+                    
+                    // Set the minimum to the kit minimum quantity
+                    return max( $min_value, $min_kit_quantity );
+                }
+                
+                break;
+            }
+        }
+        
+        return $min_value;
+    }
+
+    /**
+     * Block kit quantity change if it violates minimum
+     * This runs BEFORE smart checkout processes the request
+     */
+    public function block_kit_quantity_change() {
+        if ( ! isset( $_POST['cart_item_key'], $_POST['quantity'] ) ) {
+            return;
+        }
+        
+        $cart_item_key = wc_clean( $_POST['cart_item_key'] );
+        $new_quantity = intval( wc_clean( $_POST['quantity'] ) );
+        
+        $cart = WC()->cart->get_cart();
+        
+        if ( ! isset( $cart[ $cart_item_key ] ) ) {
+            return;
+        }
+        
+        $cart_item = $cart[ $cart_item_key ];
+        
+        // Check if this is a kit item
+        if ( ! isset( $cart_item['wc_upsell_kit'] ) || ! isset( $cart_item['wc_upsell_unique_key'] ) ) {
+            return;
+        }
+        
+        $product_id = $cart_item['product_id'];
+        $unique_key = $cart_item['wc_upsell_unique_key'];
+        $old_quantity = $cart_item['quantity'];
+        
+        // Get the minimum kit quantity for this product
+        $product_kit = new WC_Upsell_Product_Kit( $product_id );
+        $min_kit_quantity = $product_kit->get_minimum_kit_quantity();
+        
+        if ( $min_kit_quantity <= 0 ) {
+            return;
+        }
+        
+        // Calculate what the total would be with the new quantity
+        $group_total_quantity = 0;
+        foreach ( $cart as $key => $item ) {
+            if ( isset( $item['wc_upsell_unique_key'] ) && 
+                 $item['wc_upsell_unique_key'] === $unique_key && 
+                 $item['product_id'] === $product_id ) {
+                
+                if ( $key === $cart_item_key ) {
+                    $group_total_quantity += $new_quantity;
+                } else {
+                    $group_total_quantity += $item['quantity'];
+                }
+            }
+        }
+        
+        // If below minimum, block and return error immediately
+        if ( $group_total_quantity < $min_kit_quantity ) {
+            wp_send_json_error(
+                sprintf(
+                    __( 'A quantidade mínima para este kit é %d unidades.', 'wc-upsell' ),
+                    $min_kit_quantity
+                )
+            );
+        }
+    }
+
+    /**
+     * Validate cart items on checkout to enforce minimum quantities
+     */
+    public function validate_cart_on_checkout() {
+        if ( ! WC()->cart ) {
+            return;
+        }
+
+        $cart = WC()->cart->get_cart();
+        $processed_groups = array();
+
+        foreach ( $cart as $cart_item_key => $cart_item ) {
+            // Check if this is a kit item
+            if ( ! isset( $cart_item['wc_upsell_kit'] ) || ! isset( $cart_item['wc_upsell_unique_key'] ) ) {
+                continue;
+            }
+
+            $product_id = $cart_item['product_id'];
+            $unique_key = $cart_item['wc_upsell_unique_key'];
+            $group_key = $product_id . '_' . $unique_key;
+
+            // Skip if we already processed this group
+            if ( isset( $processed_groups[ $group_key ] ) ) {
+                continue;
+            }
+
+            // Calculate total quantity for this group
+            $group_total_quantity = 0;
+            foreach ( $cart as $item ) {
+                if ( isset( $item['wc_upsell_unique_key'] ) && 
+                     $item['wc_upsell_unique_key'] === $unique_key && 
+                     $item['product_id'] === $product_id ) {
+                    $group_total_quantity += $item['quantity'];
+                }
+            }
+
+            // Get the minimum kit quantity for this product
+            $product_kit = new WC_Upsell_Product_Kit( $product_id );
+            $min_kit_quantity = $product_kit->get_minimum_kit_quantity();
+
+            // Validate minimum quantity
+            if ( $min_kit_quantity > 0 && $group_total_quantity < $min_kit_quantity ) {
+                wc_add_notice( 
+                    sprintf(
+                        /* translators: %d: minimum quantity */
+                        __( 'A quantidade mínima para este kit é %d unidades. Por favor, ajuste a quantidade no carrinho antes de finalizar a compra.', 'wc-upsell' ),
+                        $min_kit_quantity
+                    ),
+                    'error'
+                );
+            }
+
+            // Mark this group as processed
+            $processed_groups[ $group_key ] = true;
+        }
     }
 
     /**

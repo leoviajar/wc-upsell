@@ -229,4 +229,30 @@ class WC_Upsell_Product_Kit {
 
         return round( max( 0, $percentage ), 2 );
     }
+
+    /**
+     * Get minimum kit quantity (smallest enabled kit)
+     *
+     * @return int Minimum quantity or 0 if no kits
+     */
+    public function get_minimum_kit_quantity() {
+        $enabled_kits = $this->get_enabled_kits();
+        
+        if ( empty( $enabled_kits ) ) {
+            return 0;
+        }
+        
+        $min_quantity = null;
+        
+        foreach ( $enabled_kits as $kit ) {
+            if ( isset( $kit['quantity'] ) ) {
+                $qty = (int) $kit['quantity'];
+                if ( $min_quantity === null || $qty < $min_quantity ) {
+                    $min_quantity = $qty;
+                }
+            }
+        }
+        
+        return $min_quantity !== null ? $min_quantity : 0;
+    }
 }
